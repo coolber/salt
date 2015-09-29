@@ -25,7 +25,7 @@ import salt.defaults.exitcodes
 import salt.output
 import salt.utils
 from salt.utils import parsers
-from salt.utils.verify import check_user, verify_env, verify_files
+from salt.utils.verify import check_user, verify_env, verify_files, verify_log
 
 # Import salt.cloud libs
 import salt.cloud
@@ -80,6 +80,7 @@ class SaltCloud(parsers.SaltCloudParser):
 
         # Setup log file logging
         self.setup_logfile_logger()
+        verify_log(self.config)
 
         if self.options.update_bootstrap:
             ret = salt.utils.cloud.update_bootstrap(self.config)
@@ -382,31 +383,6 @@ class SaltCloud(parsers.SaltCloudParser):
                 self.error(
                     'Any arguments passed to --bootstrap need to be passed as '
                     'kwargs. Ex: ssh_username=larry. Remaining arguments: {0}'.format(args)
-                )
-
-            if 'pub_key' not in vm_ and 'priv_key' not in vm_:
-                log.debug('Generating minion keys for \'{0[name]}\''.format(vm_))
-                vm_['priv_key'], vm_['pub_key'] = salt.utils.cloud.gen_keys(
-                    salt.config.get_cloud_config_value(
-                        'keysize',
-                        vm_,
-                        self.config
-                    )
-                )
-
-                key_id = vm_.get('name')
-                if 'append_domain' in vm_:
-                    key_id = '.'.join([key_id, vm_['append_domain']])
-
-                salt.utils.cloud.accept_key(
-                    self.config['pki_dir'], vm_['pub_key'], key_id
-                )
-
-            if 'os' not in vm_:
-                vm_['os'] = salt.config.get_cloud_config_value(
-                    'script',
-                    vm_,
-                    self.config
                 )
 
             try:

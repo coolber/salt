@@ -885,7 +885,7 @@ def config_get_regexp(key,
                       ignore_retcode=False,
                       **kwargs):
     r'''
-    .. versionaded:: 2015.8.0
+    .. versionadded:: 2015.8.0
 
     Get the value of a key or keys in the git configuration file using regexes
     for more flexible matching. The return data is a dictionary mapping keys to
@@ -3342,6 +3342,7 @@ def worktree_prune(cwd,
         .. versionadded:: 2015.8.0
 
     .. _`git-worktree(1)`: http://git-scm.com/docs/git-worktree
+    .. _`git-config(1)`: http://git-scm.com/docs/git-config/2.5.1
 
 
     CLI Examples:

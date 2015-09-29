@@ -1042,24 +1042,24 @@ def comment_line(path,
     Comment or Uncomment a line in a text file.
 
     :param path: string
-    The full path to the text file.
+        The full path to the text file.
 
     :param regex: string
-    A regex expression that begins with ``^`` that will find the line you wish
-    to comment. Can be as simple as ``^color =``
+        A regex expression that begins with ``^`` that will find the line you wish
+        to comment. Can be as simple as ``^color =``
 
     :param char: string
-    The character used to comment a line in the type of file you're referencing.
-    Default is ``#``
+        The character used to comment a line in the type of file you're referencing.
+        Default is ``#``
 
     :param cmnt: boolean
-    True to comment the line. False to uncomment the line. Default is True.
+        True to comment the line. False to uncomment the line. Default is True.
 
     :param backup: string
-    The file extension to give the backup file. Default is ``.bak``
+        The file extension to give the backup file. Default is ``.bak``
 
     :return: boolean
-    Returns True if successful, False if not
+        Returns True if successful, False if not
 
     CLI Example:
 
@@ -1080,7 +1080,7 @@ def comment_line(path,
 
     .. code-block:: bash
 
-    salt '*' file.comment_line 'C:\salt\conf\minion' '^log_level: (warning|info|debug)' '#' False '.bk'
+        salt '*' file.comment_line 'C:\salt\conf\minion' '^log_level: (warning|info|debug)' '#' False '.bk'
     '''
     # Get the regex for comment or uncomment
     if cmnt:
@@ -2965,7 +2965,7 @@ def statvfs(path):
             'f_blocks', 'f_bsize', 'f_favail', 'f_ffree', 'f_files', 'f_flag',
             'f_frsize', 'f_namemax'))
     except (OSError, IOError):
-        raise CommandExecutionError('Could not create {0!r}'.format(link))
+        raise CommandExecutionError('Could not statvfs {0!r}'.format(path))
     return False
 
 

@@ -229,10 +229,10 @@ def present(
         profile=None,
         wait_for_sync=True):
     '''
-    Ensure the IAM role exists.
+    Ensure the ELB exists.
 
     name
-        Name of the IAM role.
+        Name of the ELB.
 
     availability_zones
         A list of availability zones for this ELB.
@@ -374,12 +374,12 @@ def register_instances(name, instances, region=None, key=None, keyid=None,
 
     .. code-block:: yaml
 
-    add-instances:
-      boto_elb.register_instances:
-        - name: myloadbalancer
-        - instances:
-          - instance-id1
-          - instance-id2
+        add-instances:
+          boto_elb.register_instances:
+            - name: myloadbalancer
+            - instances:
+              - instance-id1
+              - instance-id2
     '''
     ret = {'name': name, 'result': None, 'comment': '', 'changes': {}}
     ret['name'] = name

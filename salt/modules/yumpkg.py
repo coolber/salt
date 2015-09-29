@@ -80,19 +80,10 @@ def _yum():
     '''
     contextkey = 'yum_bin'
     if contextkey not in __context__:
-        try:
-            osrelease = int(__grains__['osrelease'])
-        except ValueError:
-            log.warning(
-                'Unexpected osrelease grain \'{0}\', please report this'
-                .format(__grains__['osrelease'])
-            )
-            __context__[contextkey] = 'yum'
+        if 'fedora' in __grains__['os'].lower() and int(__grains__['osrelease']) >= 22:
+            __context__[contextkey] = 'dnf'
         else:
-            if 'fedora' in __grains__['os'].lower() and osrelease >= 22:
-                __context__[contextkey] = 'dnf'
-            else:
-                __context__[contextkey] = 'yum'
+            __context__[contextkey] = 'yum'
     return __context__[contextkey]
 
 
@@ -430,7 +421,7 @@ def latest_version(*names, **kwargs):
 
     # Refresh before looking for the latest version available
     if refresh:
-        refresh_db(_get_branch_option(**kwargs), repo_arg, exclude_arg)
+        refresh_db(**kwargs)
 
     # Get updates for specified package(s)
     # Sort by version number (highest to lowest) for loop below
@@ -677,11 +668,37 @@ def list_upgrades(refresh=True, **kwargs):
     exclude_arg = _get_excludes_option(**kwargs)
 
     if salt.utils.is_true(refresh):
-        refresh_db(_get_branch_option(**kwargs), repo_arg, exclude_arg)
+        refresh_db(**kwargs)
     updates = _repoquery_pkginfo(
         '{0} {1} --all --pkgnarrow=updates'.format(repo_arg, exclude_arg)
     )
     return dict([(x.name, x.version) for x in updates])
+
+
+def info_installed(*names):
+    '''
+    Return the information of the named package(s), installed on the system.
+
+    CLI example:
+
+    .. code-block:: bash
+
+        salt '*' pkg.info_installed <package1>
+        salt '*' pkg.info_installed <package1> <package2> <package3> ...
+    '''
+    ret = dict()
+    for pkg_name, pkg_nfo in __salt__['lowpkg.info'](*names).items():
+        t_nfo = dict()
+        # Translate dpkg-specific keys to a common structure
+        for key, value in pkg_nfo.items():
+            if key == 'source_rpm':
+                t_nfo['source'] = value
+            else:
+                t_nfo[key] = value
+
+        ret[pkg_name] = t_nfo
+
+    return ret
 
 
 def check_db(*names, **kwargs):
@@ -738,13 +755,13 @@ def check_db(*names, **kwargs):
         __context__['pkg._avail'] = avail
 
     ret = {}
+    repoquery_cmd = repoquery_base + ' {0}'.format(" ".join(names))
+    provides = sorted(
+        set(x.name for x in _repoquery_pkginfo(repoquery_cmd))
+    )
     for name in names:
         ret.setdefault(name, {})['found'] = name in avail
         if not ret[name]['found']:
-            repoquery_cmd = repoquery_base + ' {0}'.format(name)
-            provides = sorted(
-                set(x.name for x in _repoquery_pkginfo(repoquery_cmd))
-            )
             if name in provides:
                 # Package was not in avail but was found by the repoquery_cmd
                 ret[name]['found'] = True
@@ -753,7 +770,7 @@ def check_db(*names, **kwargs):
     return ret
 
 
-def refresh_db(branch_arg=None, repo_arg=None, exclude_arg=None, branch=None, repo=None, exclude=None):
+def refresh_db(**kwargs):
     '''
     Check the yum repos for updated packages
 
@@ -763,60 +780,58 @@ def refresh_db(branch_arg=None, repo_arg=None, exclude_arg=None, branch=None, re
     - ``False``: An error occurred
     - ``None``: No updates are available
 
+    repo
+        Refresh just the specified repo
+
+    disablerepo
+        Do not refresh the specified repo
+
+    enablerepo
+        Refesh a disabled repo using this option
+
+    branch
+        Add the specified branch when refreshing
+
+    disableexcludes
+        Disable the excludes defined in your config files. Takes one of three
+        options:
+        - ``all`` - disable all excludes
+        - ``main`` - disable excludes defined in [main] in yum.conf
+        - ``repoid`` - disable excludes defined for that repo
+
+
     CLI Example:
 
     .. code-block:: bash
 
         salt '*' pkg.refresh_db
     '''
-    def warn(old, new):
-        '''
-        warn about old arguments
-        '''
-        salt.utils.warn_until(
-            'Carbon',
-            '"{0}" is being deprecated in favor of "{1}"'.format(old, new)
-        )
-
-    if branch_arg:
-        warn(branch_arg, branch)
-        branch = branch_arg
-
-    if repo_arg:
-        warn(repo_arg, repo)
-        repo = repo_arg
-
-    if exclude_arg:
-        warn(exclude_arg, exclude)
-        exclude = exclude_arg
-
     retcodes = {
         100: True,
         0: None,
         1: False,
     }
 
-    clean_cmd = [_yum(), '-q', 'clean', 'expire-cache']
-    update_cmd = [_yum(), '-q', 'check-update']
+    repo_arg = _get_repo_options(**kwargs)
+    exclude_arg = _get_excludes_option(**kwargs)
+    branch_arg = _get_branch_option(**kwargs)
 
-    if repo:
-        clean_cmd.append(repo)
-        update_cmd.append(repo)
+    clean_cmd = 'yum -q clean expire-cache {repo} {exclude} {branch}'.format(
+        repo=repo_arg,
+        exclude=exclude_arg,
+        branch=branch_arg
+    )
+    update_cmd = 'yum -q check-update {repo} {exclude} {branch}'.format(
+        repo=repo_arg,
+        exclude=exclude_arg,
+        branch=branch_arg
+    )
 
-    if exclude:
-        clean_cmd.append(exclude)
-        update_cmd.append(exclude)
-
-    if branch:
-        clean_cmd.append(branch)
-        update_cmd.append(branch)
-
-    __salt__['cmd.run'](clean_cmd, python_shell=False)
-    ret = __salt__['cmd.retcode'](update_cmd,
-                                  python_shell=False,
-                                  ignore_retcode=True)
-
-    return retcodes.get(ret, False)
+    __salt__['cmd.run'](clean_cmd)
+    return retcodes.get(
+        __salt__['cmd.retcode'](update_cmd, ignore_retcode=True),
+        False
+    )
 
 
 def clean_metadata(**kwargs):
@@ -832,12 +847,11 @@ def clean_metadata(**kwargs):
 
         salt '*' pkg.clean_metadata
     '''
-    return refresh_db(_get_branch_option(**kwargs), _get_repo_options(**kwargs), _get_excludes_option(**kwargs))
+    return refresh_db(**kwargs)
 
 
 def install(name=None,
             refresh=False,
-            fromrepo=None,
             skip_verify=False,
             pkgs=None,
             sources=None,
@@ -954,12 +968,12 @@ def install(name=None,
         {'<package>': {'old': '<old-version>',
                        'new': '<new-version>'}}
     '''
-    branch_arg = _get_branch_option(**kwargs)
-    repo_arg = _get_repo_options(fromrepo=fromrepo, **kwargs)
+    repo_arg = _get_repo_options(**kwargs)
     exclude_arg = _get_excludes_option(**kwargs)
+    branch_arg = _get_branch_option(**kwargs)
 
     if salt.utils.is_true(refresh):
-        refresh_db(branch_arg, repo_arg, exclude_arg)
+        refresh_db(**kwargs)
     reinstall = salt.utils.is_true(reinstall)
 
     try:
@@ -1062,8 +1076,14 @@ def install(name=None,
                 downgrade.append(pkgstr)
 
     if targets:
-        cmd = '{yum_command} -y {repo} {exclude} {branch} {gpgcheck} install {pkg}'.format(
+        if _yum() == 'dnf':
+            dnf_args = '--best --allowerasing'
+        else:
+            dnf_args = ''
+
+        cmd = '{yum_command} -y {dnf} {repo} {exclude} {branch} {gpgcheck} install {pkg}'.format(
             yum_command=_yum(),
+            dnf=dnf_args,
             repo=repo_arg,
             exclude=exclude_arg,
             branch=branch_arg,
@@ -1108,7 +1128,7 @@ def install(name=None,
     return ret
 
 
-def upgrade(refresh=True, fromrepo=None, skip_verify=False, name=None, pkgs=None, normalize=True, **kwargs):
+def upgrade(refresh=True, skip_verify=False, name=None, pkgs=None, normalize=True, **kwargs):
     '''
     Run a full system upgrade - a yum upgrade, or upgrade specified packages. If the packages aren't installed,
     they will not be installed.
@@ -1193,12 +1213,12 @@ def upgrade(refresh=True, fromrepo=None, skip_verify=False, name=None, pkgs=None
         .. versionadded:: Boron
 
     '''
-    repo_arg = _get_repo_options(fromrepo=fromrepo, **kwargs)
+    repo_arg = _get_repo_options(**kwargs)
     exclude_arg = _get_excludes_option(**kwargs)
     branch_arg = _get_branch_option(**kwargs)
 
     if salt.utils.is_true(refresh):
-        refresh_db(branch_arg, repo_arg, exclude_arg)
+        refresh_db(**kwargs)
 
     old = list_pkgs()
     try:

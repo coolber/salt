@@ -558,7 +558,7 @@ def create_config(kwargs=None, call=None):
 
 
 def create_disk_from_distro(vm_, linode_id, swap_size=None):
-    '''
+    r'''
     Creates the disk for the Linode from the distribution.
 
     vm_
@@ -601,7 +601,7 @@ def create_disk_from_distro(vm_, linode_id, swap_size=None):
 
 
 def create_swap_disk(vm_, linode_id, swap_size=None):
-    '''
+    r'''
     Creates the disk for the specified Linode.
 
     vm_
@@ -630,7 +630,7 @@ def create_swap_disk(vm_, linode_id, swap_size=None):
 
 
 def create_private_ip(vm_, linode_id):
-    '''
+    r'''
     Creates a private IP for the specified Linode.
 
     vm_
@@ -747,7 +747,7 @@ def get_datacenter_id(location):
 
 
 def get_disk_size(vm_, swap):
-    '''
+    r'''
     Returns the size of of the root disk in MB.
 
     vm_
@@ -761,7 +761,7 @@ def get_disk_size(vm_, swap):
 
 
 def get_distribution_id(vm_):
-    '''
+    r'''
     Returns the distribution ID for a VM
 
     vm_
@@ -890,7 +890,7 @@ def get_linode_id_from_name(name):
 
 
 def get_password(vm_):
-    '''
+    r'''
     Return the password to use for a VM.
 
     vm_
@@ -946,7 +946,7 @@ def get_private_ip(vm_):
 
 
 def get_pub_key(vm_):
-    '''
+    r'''
     Return the SSH pubkey.
 
     vm_
@@ -958,7 +958,7 @@ def get_pub_key(vm_):
 
 
 def get_swap_size(vm_):
-    '''
+    r'''
     Returns the amoutn of swap space to be used in MB.
 
     vm_
@@ -970,7 +970,7 @@ def get_swap_size(vm_):
 
 
 def get_vm_size(vm_):
-    '''
+    r'''
     Returns the VM's size.
 
     vm_
@@ -1362,9 +1362,8 @@ def _query(action=None,
     if 'api_key' not in args.keys():
         args['api_key'] = apikey
 
-    if action:
-        if 'api_action' not in args.keys():
-            args['api_action'] = '{0}.{1}'.format(action, command)
+    if action and 'api_action' not in args.keys():
+        args['api_action'] = '{0}.{1}'.format(action, command)
 
     if header_dict is None:
         header_dict = {}
@@ -1421,9 +1420,8 @@ def _wait_for_job(linode_id, job_id, timeout=300, quiet=True):
         jobs_result = _query('linode',
                              'job.list',
                              args={'LinodeID': linode_id})['DATA']
-        if jobs_result[0]['JOBID'] == job_id:
-            if jobs_result[0]['HOST_SUCCESS'] == 1:
-                return True
+        if jobs_result[0]['JOBID'] == job_id and jobs_result[0]['HOST_SUCCESS'] == 1:
+            return True
 
         time.sleep(interval)
         if not quiet:
@@ -1520,6 +1518,7 @@ def _validate_name(name):
     name
         The VM name to validate
     '''
+    name = str(name)
     name_length = len(name)
     regex = re.compile(r'^[a-zA-Z0-9][A-Za-z0-9_-]*[a-zA-Z0-9]$')
 

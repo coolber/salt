@@ -781,13 +781,14 @@ def netapi(opts):
                      )
 
 
-def executors(opts):
+def executors(opts, functions=None, context=None):
     '''
     Returns the executor modules
     '''
     return LazyLoader(_module_dirs(opts, 'executors', 'executor'),
                       opts,
                       tag='executor',
+                      pack={'__salt__': functions, '__context__': context or {}},
                       )
 
 
@@ -1377,8 +1378,9 @@ class LazyLoader(salt.utils.lazy.LazyDict):
                             virtual = virtual[0]
                     except Exception as exc:
                         log.error('Exception raised when processing __virtual__ function'
-                                  ' for {0}. Module will not be loaded {1}'.format(
-                                      module_name, exc))
+                                  ' for {0}. Module will not be loaded: {1}'.format(
+                                      module_name, exc),
+                                  exc_info_on_loglevel=logging.DEBUG)
                         virtual = None
                 # Get the module's virtual name
                 virtualname = getattr(mod, '__virtualname__', virtual)
